@@ -1,7 +1,7 @@
 #include "Bitboard.hpp"
 #include <type_traits>
 
-std::ostream& DxChess::operator<<(std::ostream& out, const Bitboard& b) {
+std::ostream& DxChess::operator<<(std::ostream& out, Bitboard b) {
     for (auto coord = static_cast<std::underlying_type_t<Coord>>(Coord::A8);;) {
         if (b.IsMarked(static_cast<Coord>(coord)))
             out << "@";

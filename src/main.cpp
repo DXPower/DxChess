@@ -9,7 +9,12 @@ using namespace DxChess;
 int main() {
     auto printBoard = [](auto layout) {
         system("cls");
-        std::cout << Bitboard::GetCommonLayout(layout) << '\n';
+
+        Bitboard b = Bitboard::GetCommonLayout(layout);
+        b.Mark(Coord::B7);
+        b.Remove(Coord::G2);
+
+        std::cout << b << '\n';
         std::this_thread::sleep_for(0.5s);
     };
 
