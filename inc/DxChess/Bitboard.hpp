@@ -1,17 +1,31 @@
 #pragma once
 
+#include <ostream>
 #include "Coord.hpp"
 #include "Piece.hpp"
-#include <ostream>
-#include <iostream>
+#include "CompassMovement.hpp"
 
 namespace DxChess {
     struct Bitboard {
         uint64_t bits;
 
+        static consteval Bitboard NullBoard() {
+            return { 0 } ;
+        }
+
+        static constexpr Bitboard FromCoords(std::same_as<Coord> auto... coords) {
+            if constexpr (sizeof...(coords) > 0) return { (CoordToBit(coords) | ...) };
+            else return NullBoard();
+        }
+
         constexpr Bitboard& Mark(Coord coord) {
             bits |= CoordToBit(coord);
             return *this;
+        }
+
+        constexpr Bitboard Marked(Coord coord) const {
+            Bitboard b = *this;
+            return b.Mark(coord);
         }
 
         constexpr Bitboard& Remove(Coord coord) {
@@ -19,10 +33,24 @@ namespace DxChess {
             return *this;
         }
 
-        bool IsMarked(Coord coord) const {
+        constexpr Bitboard Removed(Coord coord) const {
+            Bitboard b = *this;
+            return b.Remove(coord);
+        }
+
+        constexpr bool IsMarked(Coord coord) const {
             return (bits & CoordToBit(coord)) == CoordToBit(coord);
         }
         
+        constexpr Bitboard ShiftedBy(CompassMovement movement) const {
+            return { movement(bits) };
+        }
+
+        constexpr uint8_t BitscanForward(uint8_t startingIndex) const {
+            int index = __builtin_ffsll(static_cast<int64_t>(bits) >> startingIndex);
+            return static_cast<uint8_t>(index) + startingIndex;
+        }
+
         template<typename T>
         requires RankOrFile_c<T> || std::is_same_v<T, Diagonal> || std::is_same_v<T, Checkerboard>
         static constexpr Bitboard GetCommonLayout(T x) {
@@ -36,6 +64,7 @@ namespace DxChess {
                     case Rank::R6: return { 0x0000FF0000000000 };
                     case Rank::R7: return { 0x00FF000000000000 };
                     case Rank::R8: return { 0xFF00000000000000 };
+                    default: __assume(0);
                 }
             } else if constexpr (std::is_same_v<T, File>) {
                 switch (x) {
@@ -47,16 +76,19 @@ namespace DxChess {
                     case File::F: return { 0x2020202020202020 };
                     case File::G: return { 0x4040404040404040 };
                     case File::H: return { 0x8080808080808080 };
+                    default: __assume(0);
                 }
             } else if constexpr (std::is_same_v<T, Diagonal>) {
                 switch (x) {
                     case Diagonal::Diagonal:     return { 0x8040201008040201 };
                     case Diagonal::Antidiagonal: return { 0x0102040810204080 };
+                    default: __assume(0);
                 }
             } else if constexpr (std::is_same_v<T, Checkerboard>) {
                 switch (x) {
                     case Checkerboard::Light: return { 0x55AA55AA55AA55AA };
                     case Checkerboard::Dark:  return { 0xAA55AA55AA55AA55 };
+                    default: __assume(0);
                 }
             }
         }
@@ -73,6 +105,7 @@ namespace DxChess {
                     case Rook:   return { CoordToBit(B1) | CoordToBit(G1) };
                     case Queen:  return { CoordToBit(D1)                  };
                     case King:   return { CoordToBit(E1)                  };
+                    default: __assume(0);
                 }
             } else {
                 switch (piece.type) {
@@ -82,33 +115,42 @@ namespace DxChess {
                     case Rook:   return { CoordToBit(B8) | CoordToBit(G8) };
                     case Queen:  return { CoordToBit(D8)                  };
                     case King:   return { CoordToBit(E8)                  };
+                    default: __assume(0);
                 }
             }
         }
 
-        friend std::ostream& operator<<(std::ostream& out, Bitboard b);
-
-        friend constexpr Bitboard operator&(Bitboard lhs, Bitboard rhs) {
-            return { lhs.bits & rhs.bits };
-        }
+        friend constexpr bool operator==(Bitboard lhs, Bitboard rhs) = default;
 
         constexpr Bitboard& operator&=(Bitboard rhs) {
-            *this = *this & rhs;
+            bits &= rhs.bits;
+            return *this;
+        }
+
+        friend constexpr Bitboard operator&(Bitboard lhs, Bitboard rhs) {
+            lhs &= rhs;
+            return lhs;
+        }
+
+        constexpr Bitboard& operator|=(Bitboard rhs) {
+            bits |= rhs.bits;
             return *this;
         }
 
         friend constexpr Bitboard operator|(Bitboard lhs, Bitboard rhs) {
-            return { lhs.bits & rhs.bits };
+            lhs |= rhs;
+            return lhs;
         }
 
-        constexpr Bitboard& operator|=(Bitboard rhs) {
-            *this = *this | rhs;
-            return *this;
+        friend constexpr Bitboard operator~(Bitboard b) {
+            return { ~b.bits };
         }
+
+        friend std::ostream& operator<<(std::ostream& out, Bitboard b);
 
         private:
         static constexpr uint64_t CoordToBit(Coord coord) {
-            return 1uLL << static_cast<uint8_t>(coord);
+            return 1ULL << static_cast<uint8_t>(coord);
         }
     };
 
